@@ -3,7 +3,6 @@ package finalize
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/cloudfoundry/libbuildpack"
@@ -28,11 +27,6 @@ type Finalizer struct {
 func (f *Finalizer) Run() error {
 	f.Log.BeginStep("Finalizing php")
 
-	if err := f.SymlinkHttpd(); err != nil {
-		f.Log.Error("Error symlinking httpd: %v", err)
-		return err
-	}
-
 	if err := f.WriteStartFile(); err != nil {
 		f.Log.Error("Error writing start file: %v", err)
 		return err
@@ -44,11 +38,6 @@ func (f *Finalizer) Run() error {
 		return err
 	}
 	return libbuildpack.NewYAML().Write("/tmp/php-buildpack-release-step.yml", data)
-}
-
-func (f *Finalizer) SymlinkHttpd() error {
-	f.Log.BeginStep("Symlinking httpd into app dir")
-	return os.Symlink(filepath.Join("..", "deps", f.Stager.DepsIdx(), "httpd"), filepath.Join(f.Stager.BuildDir(), "httpd"))
 }
 
 func (f *Finalizer) WriteStartFile() error {

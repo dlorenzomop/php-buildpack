@@ -1,6 +1,7 @@
 package supply
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -258,7 +259,15 @@ func (s *Supplier) InstallHTTPD() error {
 			return err
 		}
 	}
-	return nil
+	// convert name of binary in apachectl
+	s.Log.Debug("Rewrite references in apachectl from '/app/httpd/' to '$DEPS_DIR/0/httpd/'")
+	txt, err := ioutil.ReadFile(filepath.Join(s.Stager.DepDir(), "httpd/bin/apachectl"))
+	if err != nil {
+		return err
+	}
+	txt = bytes.Replace(txt, []byte(`HTTPD='/app/httpd/bin/httpd'`), []byte(`HTTPD="/app/httpd/bin/httpd"`), -1)
+	txt = bytes.Replace(txt, []byte("/app/httpd/"), []byte(fmt.Sprintf("$DEPS_DIR/%s/httpd/", s.Stager.DepsIdx())), -1)
+	return ioutil.WriteFile(filepath.Join(s.Stager.DepDir(), "httpd/bin/apachectl"), txt, 0755)
 }
 
 func (s *Supplier) InstallPHP() error {
