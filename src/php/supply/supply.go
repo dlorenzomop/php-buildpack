@@ -54,6 +54,7 @@ type Supplier struct {
 	ComposerPath   string
 	PhpExtensions  []string
 	ZendExtensions []string
+	WebDir         string
 }
 
 func (s *Supplier) Run() error {
@@ -189,6 +190,7 @@ func (s *Supplier) SetupPhpVersion() error {
 func (s *Supplier) SetupExtensions() error {
 	s.PhpExtensions = []string{"bz2.so", "zlib.so", "curl.so", "mcrypt.so", "openssl.so"}
 	s.ZendExtensions = []string{}
+	s.WebDir = ""
 
 	var options map[string]interface{}
 	if err := s.JSON.Load(filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"), &options); err != nil {
@@ -217,6 +219,10 @@ func (s *Supplier) SetupExtensions() error {
 				}
 			}
 			s.Log.Debug("Found zend extensions in options.json: %v", s.ZendExtensions)
+		}
+
+		if val, ok := options["WEBDIR"].(string); ok {
+			s.WebDir = val
 		}
 	}
 
@@ -275,7 +281,7 @@ func (s *Supplier) WriteConfigFiles() error {
 		"DepsIdx":           s.Stager.DepsIdx(),
 		"PhpFpmConfInclude": "",
 		"PhpFpmListen":      "127.0.0.1:9000",
-		"Webdir":            "",
+		"Webdir":            s.WebDir,
 		"HOME":              "{{.HOME}}",
 		"DEPS_DIR":          "{{.DEPS_DIR}}",
 		"TMPDIR":            "{{.TMPDIR}}",
