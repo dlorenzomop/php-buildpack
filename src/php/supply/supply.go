@@ -161,22 +161,24 @@ func (s *Supplier) SetupPhpVersion() error {
 			if s.PhpVersion != "" {
 				s.Log.Warning("A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`.\nThe version defined in `composer.json` will be used.")
 			}
-			s.PhpVersion = composer.Requires.Php
-			s.Log.Debug("PHP Version from composer.json: %s", options.Version)
+			s.PhpVersion = strings.Replace(composer.Requires.Php, ">=", "~>", -1)
+			s.Log.Debug("PHP Version from composer.json: %s", s.PhpVersion)
 		}
 	}
 
 	if s.PhpVersion != "" {
-		// Check version range
 		versions := s.Manifest.AllDependencyVersions("php")
 		if v, err := libbuildpack.FindMatchingVersion(s.PhpVersion, versions); err != nil {
-			return err
+			// TODO or should we blow up
+			s.Log.Warning("PHP version %s not available, using default version.\n            In future versions of the buildpack, specifying a non-existent PHP version will cause staging to fail.\n            See: http://docs.cloudfoundry.org/buildpacks/php/gsg-php-composer.html", s.PhpVersion)
+			s.PhpVersion = ""
 		} else {
 			s.PhpVersion = v
 			s.Log.Debug("PHP Version interpolated: %s", s.PhpVersion)
 		}
-	} else {
-		// Default
+	}
+
+	if s.PhpVersion == "" {
 		if dep, err := s.Manifest.DefaultVersion("php"); err != nil {
 			return err
 		} else {

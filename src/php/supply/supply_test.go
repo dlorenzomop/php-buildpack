@@ -73,14 +73,14 @@ var _ = Describe("Supply", func() {
 		Expect(os.RemoveAll(depsDir)).To(Succeed())
 	})
 
-	Describe("Setup", func() {
+	Describe("SetupPhpVersion", func() {
 		BeforeEach(func() {
 			mockManifest.EXPECT().AllDependencyVersions("php").
 				AnyTimes().Return([]string{"1.3.5", "1.3.6", "2.3.4", "2.3.5", "3.4.5", "3.4.6", "3.4.7", "7.1.2"})
 		})
 		Context("no app settings files", func() {
 			BeforeEach(func() {
-				mockJSON.EXPECT().Load(gomock.Any(), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT)).Times(2)
+				mockJSON.EXPECT().Load(gomock.Any(), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT)).Times(1)
 				mockManifest.EXPECT().DefaultVersion("php").Return(libbuildpack.Dependency{Name: "php", Version: "1.3.5"}, nil)
 				Expect(supplier.SetupPhpVersion()).To(Succeed())
 			})
@@ -93,7 +93,7 @@ var _ = Describe("Supply", func() {
 		})
 		Context("app has settings files, but no requested versions in them", func() {
 			BeforeEach(func() {
-				mockJSON.EXPECT().Load(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+				mockJSON.EXPECT().Load(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 				mockManifest.EXPECT().DefaultVersion("php").Return(libbuildpack.Dependency{Name: "php", Version: "1.3.5"}, nil)
 				Expect(supplier.SetupPhpVersion()).To(Succeed())
 			})
@@ -110,7 +110,6 @@ var _ = Describe("Supply", func() {
 					reflect.ValueOf(obj).Elem().FieldByName("Version").SetString("2.3.4")
 					return nil
 				})
-				mockJSON.EXPECT().Load(filepath.Join(buildDir, "composer.json"), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT))
 				Expect(supplier.SetupPhpVersion()).To(Succeed())
 			})
 			It("sets php version", func() {
@@ -126,7 +125,6 @@ var _ = Describe("Supply", func() {
 					reflect.ValueOf(obj).Elem().FieldByName("Version").SetString("PHP_71_LATEST")
 					return nil
 				})
-				mockJSON.EXPECT().Load(filepath.Join(buildDir, "composer.json"), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT))
 				Expect(supplier.SetupPhpVersion()).To(Succeed())
 			})
 			It("sets php version", func() {
@@ -136,6 +134,7 @@ var _ = Describe("Supply", func() {
 		Context("composer.json has requested version", func() {
 			BeforeEach(func() {
 				mockJSON.EXPECT().Load(filepath.Join(buildDir, ".bp-config", "options.json"), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT))
+				supplier.ComposerPath = filepath.Join(buildDir, "composer.json")
 				mockJSON.EXPECT().Load(filepath.Join(buildDir, "composer.json"), gomock.Any()).Do(func(string, obj interface{}) error {
 					reflect.ValueOf(obj).Elem().FieldByName("Requires").FieldByName("Php").SetString("3.4.5")
 					return nil
@@ -149,11 +148,12 @@ var _ = Describe("Supply", func() {
 				Expect(buffer.String()).ToNot(ContainSubstring("WARNING"))
 			})
 		})
-		Context("composer.json has requested version range", func() {
+		Context("composer.json has requested version range (composer semver >=)", func() {
 			BeforeEach(func() {
 				mockJSON.EXPECT().Load(filepath.Join(buildDir, ".bp-config", "options.json"), gomock.Any()).Return(os.NewSyscallError("", syscall.ENOENT))
+				supplier.ComposerPath = filepath.Join(buildDir, "composer.json")
 				mockJSON.EXPECT().Load(filepath.Join(buildDir, "composer.json"), gomock.Any()).Do(func(string, obj interface{}) error {
-					reflect.ValueOf(obj).Elem().FieldByName("Requires").FieldByName("Php").SetString("~>3.4.5")
+					reflect.ValueOf(obj).Elem().FieldByName("Requires").FieldByName("Php").SetString(">=3.4.5")
 					return nil
 				})
 				Expect(supplier.SetupPhpVersion()).To(Succeed())
@@ -171,6 +171,7 @@ var _ = Describe("Supply", func() {
 					reflect.ValueOf(obj).Elem().FieldByName("Version").SetString("2.3.4")
 					return nil
 				})
+				supplier.ComposerPath = filepath.Join(buildDir, "composer.json")
 				mockJSON.EXPECT().Load(filepath.Join(buildDir, "composer.json"), gomock.Any()).Do(func(string, obj interface{}) error {
 					reflect.ValueOf(obj).Elem().FieldByName("Requires").FieldByName("Php").SetString("3.4.5")
 					return nil

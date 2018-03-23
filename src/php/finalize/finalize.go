@@ -47,13 +47,13 @@ varify "$DEPS_DIR/%s/php/etc/" "$DEPS_DIR/%s/httpd/conf/"
 $DEPS_DIR/%s/php/sbin/php-fpm -p "$DEPS_DIR/%s/php/etc" -y "$DEPS_DIR/%s/php/etc/php-fpm.conf" -c "$DEPS_DIR/%s/php/etc" &
 $DEPS_DIR/%s/httpd/bin/apachectl -f "$DEPS_DIR/%s/httpd/conf/httpd.conf" -k start -DFOREGROUND
 `, f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx(), f.Stager.DepsIdx())
-	return ioutil.WriteFile(filepath.Join(f.Stager.DepDir(), "start"), []byte(start), 0755)
+	return ioutil.WriteFile(filepath.Join(f.Stager.DepDir(), "bin", "php_buildpack_start"), []byte(start), 0755)
 }
 
 func (f *Finalizer) GenerateReleaseYaml() (map[string]map[string]string, error) {
 	return map[string]map[string]string{
 		"default_process_types": {
-			"web": fmt.Sprintf("$DEPS_DIR/%s/start", f.Stager.DepsIdx()),
+			"web": fmt.Sprintf("$DEPS_DIR/%s/bin/php_buildpack_start", f.Stager.DepsIdx()),
 		},
 	}, nil
 }
