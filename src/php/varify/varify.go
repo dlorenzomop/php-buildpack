@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 func main() {
 	for _, arg := range os.Args[1:] {
+		fmt.Printf("WALK: %s\n", arg)
 		err := filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil

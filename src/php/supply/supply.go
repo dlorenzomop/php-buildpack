@@ -102,6 +102,11 @@ func (s *Supplier) Run() error {
 		return err
 	}
 
+	if err := s.WriteStartFile(); err != nil {
+		s.Log.Error("Error writing start file: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -191,7 +196,7 @@ func (s *Supplier) SetupPhpVersion() error {
 }
 
 func (s *Supplier) SetupExtensions() error {
-	s.PhpExtensions = []string{"bz2.so", "zlib.so", "curl.so", "mcrypt.so", "openssl.so"}
+	s.PhpExtensions = []string{"bz2", "zlib", "curl", "mcrypt", "openssl"}
 	s.ZendExtensions = []string{}
 	s.WebDir = ""
 
@@ -236,8 +241,9 @@ func (s *Supplier) SetupExtensions() error {
 			s.Log.Debug("composer.json: %+v", options)
 			if requires, ok := options["require"].(map[string]interface{}); ok {
 				s.Log.Debug("composer.json->require: %+v", options)
-				s.PhpExtensions = []string{}
-				// TODO does the value mean something?
+				// TODO should this remove the defaults? appears to me that it should NOT
+				// s.PhpExtensions = []string{}
+				// TODO does the value mean something? version?
 				// TODO does composer.json have zend extensions?
 				// TODO document change to NOT testing if extenion available
 				for k, _ := range requires {
@@ -299,14 +305,15 @@ func (s *Supplier) WriteConfigFiles() error {
 		"PhpExtensions":     "",
 		"ZendExtensions":    "",
 	}
+
 	for _, ext := range s.PhpExtensions {
-		ctxRun["PhpExtensions"] = ctxRun["PhpExtensions"] + "extension=" + ext + "\n"
+		ctxRun["PhpExtensions"] = ctxRun["PhpExtensions"] + "extension=" + ext + ".so\n"
 	}
-	// s.Log.Debug("PhpExtensions: %s", ctxRun["PhpExtensions"])
+	s.Log.Debug("PhpExtensions: %s", ctxRun["PhpExtensions"])
 	for _, ext := range s.ZendExtensions {
 		ctxRun["ZendExtensions"] = ctxRun["ZendExtensions"] + "zend_extension=" + ext + "\n"
 	}
-	// s.Log.Debug("ZendExtensions: %s", ctxRun["ZendExtensions"])
+	s.Log.Debug("ZendExtensions: %s", ctxRun["ZendExtensions"])
 
 	ctxStage := make(map[string]string)
 	for k, v := range ctxRun {
@@ -315,6 +322,8 @@ func (s *Supplier) WriteConfigFiles() error {
 	ctxStage["DEPS_DIR"] = s.Stager.DepsDir()
 	ctxStage["HOME"] = s.Stager.BuildDir()
 	ctxStage["TMPDIR"] = "/tmp"
+	// TODO remove ; except it appears to be necessary????
+	ctxStage["PhpExtensions"] = ctxRun["PhpExtensions"] + "extension=openssl.so\n"
 
 	handler := func(src, dest string, readAll func(string) ([]byte, error)) func(path string, info os.FileInfo, err error) error {
 		return func(path string, info os.FileInfo, err error) error {
@@ -412,9 +421,12 @@ func (s *Supplier) RunComposer() error {
 }
 
 func (s *Supplier) InstallVarify() error {
+	s.Log.Debug("Installing Varify")
+
 	if exists, err := libbuildpack.FileExists(filepath.Join(s.Stager.DepDir(), "bin", "varify")); err != nil {
 		return err
 	} else if exists {
+		// in unbuilt mode 'bin/supply' builds varify into the correct location
 		return nil
 	}
 
@@ -422,6 +434,8 @@ func (s *Supplier) InstallVarify() error {
 }
 
 func (s *Supplier) WriteProfileD() error {
+	s.Log.BeginStep("Writing profile.d script")
+
 	script := fmt.Sprintf("export PHPRC=$DEPS_DIR/%s/php/etc\n", s.Stager.DepsIdx())
 	script = script + "export HTTPD_SERVER_ADMIN=admin@localhost\n"
 	if found, err := libbuildpack.FileExists(filepath.Join(s.Stager.DepDir(), "php/etc/php.ini.d")); err != nil {
@@ -429,7 +443,21 @@ func (s *Supplier) WriteProfileD() error {
 	} else if found {
 		script = script + fmt.Sprintf("export PHP_INI_SCAN_DIR=$DEPS_DIR/%s/php/etc/php.ini.d\n", s.Stager.DepsIdx())
 	}
+
+	script = script + fmt.Sprintf(`varify "$DEPS_DIR/%s/php/etc/" "$DEPS_DIR/%s/httpd/conf/"`, s.Stager.DepsIdx(), s.Stager.DepsIdx()) + "\n"
+
 	return s.Stager.WriteProfileD("bp_env_vars.sh", script)
+}
+
+func (s *Supplier) WriteStartFile() error {
+	s.Log.BeginStep("Writing start script (php_buildpack_start)")
+
+	start := fmt.Sprintf(`#!/usr/bin/env bash
+# TODO real process management
+$DEPS_DIR/%s/php/sbin/php-fpm -p "$DEPS_DIR/%s/php/etc" -y "$DEPS_DIR/%s/php/etc/php-fpm.conf" -c "$DEPS_DIR/%s/php/etc" &
+$DEPS_DIR/%s/httpd/bin/apachectl -f "$DEPS_DIR/%s/httpd/conf/httpd.conf" -k start -DFOREGROUND
+`, s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx(), s.Stager.DepsIdx())
+	return ioutil.WriteFile(filepath.Join(s.Stager.DepDir(), "bin", "php_buildpack_start"), []byte(start), 0755)
 }
 
 func versionLine(v string) string {
