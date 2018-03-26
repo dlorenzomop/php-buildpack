@@ -302,6 +302,7 @@ func (s *Supplier) WriteConfigFiles() error {
 		"HOME":              "{{.HOME}}",
 		"DEPS_DIR":          "{{.DEPS_DIR}}",
 		"TMPDIR":            "{{.TMPDIR}}",
+		"Libdir":            "lib", // TODO shift to deps dir (autoload is in lib/vendor)
 		"PhpExtensions":     "",
 		"ZendExtensions":    "",
 	}
