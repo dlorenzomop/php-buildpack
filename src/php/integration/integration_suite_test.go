@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/blang/semver"
@@ -92,6 +93,11 @@ func PushAppAndConfirm(app *cutlass.App) {
 func Restart(app *cutlass.App) {
 	Expect(app.Restart()).To(Succeed())
 	Eventually(func() ([]string, error) { return app.InstanceStates() }, 20*time.Second).Should(Equal([]string{"RUNNING"}))
+}
+
+func log(app *cutlass.App) string {
+	var cleaner = strings.NewReplacer("\033[31;1m", "", "\033[33;1m", "", "\033[34;1m", "", "\033[0m", "", "**WARNING**", "WARNING:", "**ERROR**", "ERROR:")
+	return cleaner.Replace(log(app))
 }
 
 func ApiGreaterThan(version string) bool {

@@ -29,8 +29,8 @@ var _ = Describe("CF PHP Buildpack", func() {
 
 			PushAppAndConfirm(app)
 
-			Expect(app.Stdout.String()).To(ContainSubstring("Installing PHP"))
-			Expect(app.Stdout.String()).To(ContainSubstring("PHP " + php.Version70))
+			Expect(log(app)).To(ContainSubstring("Installing PHP"))
+			Expect(log(app)).To(ContainSubstring("PHP " + php.Version70))
 		})
 	})
 })
