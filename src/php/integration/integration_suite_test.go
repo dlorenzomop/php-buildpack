@@ -97,7 +97,7 @@ func Restart(app *cutlass.App) {
 
 func log(app *cutlass.App) string {
 	var cleaner = strings.NewReplacer("\033[31;1m", "", "\033[33;1m", "", "\033[34;1m", "", "\033[0m", "", "**WARNING**", "WARNING:", "**ERROR**", "ERROR:")
-	return cleaner.Replace(log(app))
+	return cleaner.Replace(app.Stdout.String())
 }
 
 func ApiGreaterThan(version string) bool {
