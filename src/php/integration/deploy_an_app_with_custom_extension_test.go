@@ -10,6 +10,7 @@ import (
 )
 
 var _ = Describe("CF PHP Buildpack", func() {
+	BeforeEach(SkipIntentionallyRemovedFunctionality)
 	var app *cutlass.App
 	AfterEach(func() { app = DestroyApp(app) })
 
