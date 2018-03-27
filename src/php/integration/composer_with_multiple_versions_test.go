@@ -44,7 +44,7 @@ var _ = Describe("CF PHP Buildpack", func() {
 		PushAppAndConfirm(app)
 
 		By("installs the default version of PHP")
-		Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring(`"update_default_version" is setting [PHP_VERSION]`))
+		Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring(`PHP Version Default: 5.6.`))
 
 		By("doesn't display a warning message")
 		Expect(log(app)).NotTo(ContainSubstring("WARNING: A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`."))

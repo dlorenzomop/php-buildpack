@@ -181,7 +181,8 @@ func (s *Supplier) SetupPhpVersion() error {
 			return err
 		} else if composer.Requires.Php != "" {
 			if s.PhpVersion != "" {
-				s.Log.Warning("A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`.\nThe version defined in `composer.json` will be used.")
+				s.Log.Warning("A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`.")
+				s.Log.Warning("The version defined in `composer.json` will be used.")
 			}
 			s.PhpVersion = strings.Replace(composer.Requires.Php, ">=", "~>", -1)
 			s.Log.Debug("PHP Version from composer.json: %s", s.PhpVersion)

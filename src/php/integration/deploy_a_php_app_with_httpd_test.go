@@ -60,7 +60,7 @@ var _ = Describe("CF PHP Buildpack", func() {
 		})
 
 		It("installs the default version of httpd", func() {
-			Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring(`"update_default_version" is setting [HTTPD_VERSION]`))
+			Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring(`PHP Version Default: 5.6.`))
 		})
 	})
 
