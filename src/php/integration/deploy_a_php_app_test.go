@@ -24,8 +24,8 @@ var _ = Describe("CF PHP Buildpack", func() {
 		PushAppAndConfirm(app)
 
 		By("installs a current version of PHP")
-		Expect(log(app)).To(ContainSubstring("Installing PHP"))
-		Expect(log(app)).To(ContainSubstring("PHP 5.6"))
+		Expect(log(app)).To(ContainSubstring("Installing php"))
+		Expect(log(app)).To(ContainSubstring("php 5.6"))
 
 		By("does not return the version of PHP in the response headers")
 		body, headers, err := app.Get("/", map[string]string{})
@@ -37,15 +37,9 @@ var _ = Describe("CF PHP Buildpack", func() {
 		Expect(log(app)).ToNot(ContainSubstring("WARNING: A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`."))
 		Expect(log(app)).ToNot(ContainSubstring("WARNING: The version defined in `composer.json` will be used."))
 
-		By("installs the default version of PHP")
-		Expect(log(app)).To(ContainSubstring(`"update_default_version" is setting [PHP_VERSION]`))
-
-		By("installs the default version of composer")
-		Expect(log(app)).To(ContainSubstring("DEBUG: default_version_for composer is"))
-
 		if cutlass.Cached {
 			By("downloads the binaries directly from the buildpack")
-			Expect(log(app)).To(MatchRegexp(`Downloaded \[file://.*/dependencies/https___buildpacks.cloudfoundry.org_dependencies_php_php-5.6.\d+-linux-x64-[\da-f]+.tgz\] to \[/tmp\]`))
+			Expect(log(app)).To(MatchRegexp(`Copy \[.*/php-5.6.\d+-linux-x64-[\da-f]+.tgz\]`))
 		}
 	})
 
