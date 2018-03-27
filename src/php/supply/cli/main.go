@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	_ "php/hooks"
@@ -60,11 +61,12 @@ func main() {
 	}
 
 	s := supply.Supplier{
-		Stager:   stager,
-		Manifest: manifest,
-		Log:      logger,
-		Command:  &libbuildpack.Command{},
-		JSON:     libbuildpack.NewJSON(),
+		Stager:     stager,
+		Manifest:   manifest,
+		Log:        logger,
+		Command:    &libbuildpack.Command{},
+		JSON:       libbuildpack.NewJSON(),
+		HttpClient: &http.Client{},
 	}
 
 	err = s.Run()

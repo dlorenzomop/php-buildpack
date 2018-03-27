@@ -2,8 +2,10 @@ package supply
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,6 +46,9 @@ type Command interface {
 type JSON interface {
 	Load(file string, obj interface{}) error
 }
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 type Supplier struct {
 	Manifest       Manifest
@@ -51,6 +56,7 @@ type Supplier struct {
 	Command        Command
 	Log            *libbuildpack.Logger
 	JSON           JSON
+	HttpClient     HttpClient
 	PhpVersion     string
 	ComposerPath   string
 	PhpExtensions  []string
@@ -83,6 +89,17 @@ func (s *Supplier) Run() error {
 	}
 
 	if s.ComposerPath != "" {
+		if os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN") != "" {
+			if s.isComposerTokenValid(os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN")) {
+				s.Log.BeginStep("Using custom GitHub OAuth token in $COMPOSER_GITHUB_OAUTH_TOKEN")
+				// TODO config token
+				// self.composer_runner.run('config', '-g', 'github-oauth.github.com', '"%s"' % github_oauth_token)
+				// https://github.com/cloudfoundry/php-buildpack/blob/86861d985f6240ba5a8ec445c2a7b8255a5df22b/extensions/composer/extension.py#L287-L289
+			} else {
+				s.Log.BeginStep("The GitHub OAuth token supplied from $COMPOSER_GITHUB_OAUTH_TOKEN is invalid")
+			}
+		}
+
 		if err := s.InstallComposer(); err != nil {
 			s.Log.Error("Failed to install composer: %s", err)
 			return err
@@ -465,4 +482,27 @@ func versionLine(v string) string {
 	vs := strings.Split(v, ".")
 	vs[len(vs)-1] = "x"
 	return strings.Join(vs, ".")
+}
+
+func (s *Supplier) isComposerTokenValid(token string) bool {
+	req, err := http.NewRequest("GET", "https://api.github.com/rate_limit", nil)
+	if err != nil {
+		s.Log.Error("NewRequest: %s", err)
+		return false
+	}
+	req.Header.Add("Authorization", "token "+token)
+	resp, err := s.HttpClient.Do(req)
+	if err != nil {
+		s.Log.Error("client.Do: %s", err)
+		return false
+	}
+	defer resp.Body.Close()
+	hash := make(map[string]interface{})
+	if err := json.NewDecoder(resp.Body).Decode(&hash); err != nil {
+		s.Log.Error("parse json: %s", err)
+		return false
+	}
+	s.Log.Error("RateLimit: %+v", hash)
+	_, ok := hash["resources"]
+	return ok
 }
