@@ -30,7 +30,7 @@ func ItLoadsAllTheModules(app *cutlass.App, phpVersion string) {
 	}
 
 	By("logs each module on the info page", func() {
-		Expect(log(app)).To(ContainSubstring("PHP " + phpVersion))
+		Expect(log(app)).To(ContainSubstring("php " + phpVersion))
 		body, err := app.GetBody("/")
 		Expect(err).ToNot(HaveOccurred())
 
