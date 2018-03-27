@@ -133,6 +133,12 @@ func (s *Supplier) ReadConfig() error {
 		s.Log.Debug("File Not Exist: %s", filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"))
 	}
 
+	if val, ok := s.OptionsJson["WEBDIR"].(string); ok {
+		s.WebDir = val
+	} else {
+		s.WebDir = ""
+	}
+
 	if found, err := libbuildpack.FileExists(filepath.Join(s.Stager.BuildDir(), "composer.json")); err != nil {
 		return err
 	} else if found {
@@ -214,7 +220,6 @@ func (s *Supplier) SetupPhpVersion() error {
 func (s *Supplier) SetupExtensions() error {
 	s.PhpExtensions = []string{"bz2", "zlib", "curl", "mcrypt", "openssl"}
 	s.ZendExtensions = []string{}
-	s.WebDir = ""
 
 	if arr, ok := s.OptionsJson["PHP_EXTENSIONS"].([]interface{}); ok {
 		// TODO why implement deprecated feature?
@@ -236,10 +241,6 @@ func (s *Supplier) SetupExtensions() error {
 			}
 		}
 		s.Log.Debug("Found zend extensions in options.json: %v", s.ZendExtensions)
-	}
-
-	if val, ok := s.OptionsJson["WEBDIR"].(string); ok {
-		s.WebDir = val
 	}
 
 	if requires, ok := s.ComposerJson["require"].(map[string]interface{}); ok {
@@ -405,6 +406,7 @@ func (s *Supplier) RunComposer() error {
 
 	env := append(
 		os.Environ(),
+		"COMPOSER_NO_INTERACTION=1",
 		fmt.Sprintf("COMPOSER_CACHE_DIR=%s/composer", s.Stager.CacheDir()),
 		fmt.Sprintf("COMPOSER_VENDOR_DIR=%s/lib/vendor", s.Stager.BuildDir()),
 		fmt.Sprintf("COMPOSER_BIN_DIR=%s/php/bin", s.Stager.DepDir()),
@@ -429,7 +431,7 @@ func (s *Supplier) RunComposer() error {
 		}
 	}
 
-	cmd := exec.Command("php", filepath.Join(s.Stager.DepDir(), "bin", "composer"), "install", "--no-progress", "--no-interaction", "--no-dev")
+	cmd := exec.Command("php", filepath.Join(s.Stager.DepDir(), "bin", "composer"), "install", "--no-progress", "--no-dev")
 	cmd.Env = env
 	cmd.Dir = s.Stager.BuildDir()
 	cmd.Stdout = text.NewIndentWriter(os.Stdout, []byte("       "))
