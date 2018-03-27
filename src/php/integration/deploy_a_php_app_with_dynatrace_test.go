@@ -11,6 +11,7 @@ import (
 )
 
 var _ = Describe("Deploy app with", func() {
+	BeforeEach(SkipNotYetImplementedFunctionality)
 	var app *cutlass.App
 	var serviceName, serviceName2 string
 	RunCf := func(args ...string) error {

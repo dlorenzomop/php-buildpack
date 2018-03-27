@@ -11,8 +11,8 @@ import (
 )
 
 var _ = Describe("CF PHP Buildpack", func() {
-	var app *cutlass.App
 	BeforeEach(SkipIntentionallyRemovedFunctionality)
+	var app *cutlass.App
 	AfterEach(func() { app = DestroyApp(app) })
 
 	Context("deploying a basic PHP app using Nginx as the webserver", func() {
