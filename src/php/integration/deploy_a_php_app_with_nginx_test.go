@@ -12,6 +12,7 @@ import (
 
 var _ = Describe("CF PHP Buildpack", func() {
 	var app *cutlass.App
+	BeforeEach(SkipIntentionallyRemovedFunctionality)
 	AfterEach(func() { app = DestroyApp(app) })
 
 	Context("deploying a basic PHP app using Nginx as the webserver", func() {
@@ -23,7 +24,7 @@ var _ = Describe("CF PHP Buildpack", func() {
 
 		It("succeeds", func() {
 			By("shows the current buildpack version for useful info")
-			Expect(log(app)).To(ContainSubstring("-------> Buildpack version " + buildpackVersion))
+			Expect(log(app)).To(ContainSubstring("-------> Php Buildpack version " + buildpackVersion))
 
 			By("installs nginx, the request web server")
 			Expect(log(app)).To(ContainSubstring("Installing Nginx"))

@@ -80,6 +80,11 @@ func TestIntegration(t *testing.T) {
 	RunSpecs(t, "Integration Suite")
 }
 
+func SkipIntentionallyRemovedFunctionality() {
+	// TODO discuss
+	Skip("Intentionally Removed Functionality")
+}
+
 func ConfirmRunning(app *cutlass.App) {
 	Eventually(func() ([]string, error) { return app.InstanceStates() }, 20*time.Second).Should(Equal([]string{"RUNNING"}))
 }
