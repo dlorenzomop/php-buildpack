@@ -51,25 +51,31 @@ type HttpClient interface {
 }
 
 type Supplier struct {
-	Manifest       Manifest
-	Stager         Stager
-	Command        Command
-	Log            *libbuildpack.Logger
-	JSON           JSON
-	HttpClient     HttpClient
-	PhpVersion     string
-	ComposerPath   string
-	PhpExtensions  []string
-	ZendExtensions []string
-	WebDir         string
+	Manifest            Manifest
+	Stager              Stager
+	Command             Command
+	Log                 *libbuildpack.Logger
+	JSON                JSON
+	HttpClient          HttpClient
+	PhpVersion          string
+	ComposerGithubToken string
+	ComposerPath        string
+	ComposerJson        map[string]interface{}
+	OptionsJson         map[string]interface{}
+	PhpExtensions       []string
+	ZendExtensions      []string
+	WebDir              string
 }
 
 func (s *Supplier) Run() error {
 	s.Log.BeginStep("Supplying php")
 
-	if err := s.FindComposer(); err != nil {
-		return fmt.Errorf("Initialiizing: composer: %s", err)
+	s.ComposerGithubToken = os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN")
+
+	if err := s.ReadConfig(); err != nil {
+		return fmt.Errorf("reading config: %s", err)
 	}
+
 	if err := s.SetupPhpVersion(); err != nil {
 		return fmt.Errorf("Initialiizing: php version: %s", err)
 	}
@@ -89,17 +95,6 @@ func (s *Supplier) Run() error {
 	}
 
 	if s.ComposerPath != "" {
-		if os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN") != "" {
-			if s.isComposerTokenValid(os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN")) {
-				s.Log.BeginStep("Using custom GitHub OAuth token in $COMPOSER_GITHUB_OAUTH_TOKEN")
-				// TODO config token
-				// self.composer_runner.run('config', '-g', 'github-oauth.github.com', '"%s"' % github_oauth_token)
-				// https://github.com/cloudfoundry/php-buildpack/blob/86861d985f6240ba5a8ec445c2a7b8255a5df22b/extensions/composer/extension.py#L287-L289
-			} else {
-				s.Log.BeginStep("The GitHub OAuth token supplied from $COMPOSER_GITHUB_OAUTH_TOKEN is invalid")
-			}
-		}
-
 		if err := s.InstallComposer(); err != nil {
 			s.Log.Error("Failed to install composer: %s", err)
 			return err
@@ -127,15 +122,23 @@ func (s *Supplier) Run() error {
 	return nil
 }
 
-func (s *Supplier) FindComposer() error {
+func (s *Supplier) ReadConfig() error {
+	// TODO webdir ??
+
+	if err := s.JSON.Load(filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"), &s.OptionsJson); err != nil {
+		if !os.IsNotExist(err) {
+			s.Log.Error("Invalid JSON present in options.json. Parser said %s", err)
+			return err
+		}
+		s.Log.Debug("File Not Exist: %s", filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"))
+	}
+
 	if found, err := libbuildpack.FileExists(filepath.Join(s.Stager.BuildDir(), "composer.json")); err != nil {
 		return err
 	} else if found {
 		s.Log.Debug("Found composer in build dir")
 		s.ComposerPath = filepath.Join(s.Stager.BuildDir(), "composer.json")
 	}
-
-	// TODO webdir ??
 
 	s.Log.Debug("COMPOSER_PATH: %s", os.Getenv("COMPOSER_PATH"))
 	if os.Getenv("COMPOSER_PATH") != "" {
@@ -147,45 +150,40 @@ func (s *Supplier) FindComposer() error {
 		}
 	}
 
+	if s.ComposerPath != "" {
+		if err := s.JSON.Load(s.ComposerPath, &s.ComposerJson); err != nil {
+			if !os.IsNotExist(err) {
+				s.Log.Error("Invalid JSON present in composer.json. Parser said %s", err)
+				return err
+			}
+			s.Log.Debug("File Not Exist: %s", s.ComposerPath)
+		}
+	}
+
 	return nil
 }
 
 func (s *Supplier) SetupPhpVersion() error {
 	// .bp-config/options.json
-	var options struct {
-		Version string `json:"PHP_VERSION"`
-	}
-	if err := s.JSON.Load(filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"), &options); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		s.Log.Debug("File Not Exist: %s", filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"))
-	} else if options.Version != "" {
-		s.Log.Debug("PHP Version from options.json: %s", options.Version)
-		m := regexp.MustCompile(`PHP_(\d)(\d)_LATEST`).FindStringSubmatch(options.Version)
+	if version, ok := s.OptionsJson["PHP_VERSION"].(string); ok && version != "" {
+		s.Log.Debug("PHP Version from options.json: %s", version)
+		m := regexp.MustCompile(`PHP_(\d)(\d)_LATEST`).FindStringSubmatch(version)
 		if len(m) == 3 {
 			s.PhpVersion = fmt.Sprintf("%s.%s.x", m[1], m[2])
 			s.Log.Debug("PHP Version interpolated: %s", s.PhpVersion)
 		} else {
-			s.PhpVersion = options.Version
+			s.PhpVersion = version
 		}
 	}
 
-	if s.ComposerPath != "" {
-		var composer struct {
-			Requires struct {
-				Php string `json:"php"`
-			} `json:"require"`
-		}
-		if err := s.JSON.Load(s.ComposerPath, &composer); err != nil {
-			return err
-		} else if composer.Requires.Php != "" {
+	if require, ok := s.ComposerJson["require"].(map[string]interface{}); ok {
+		if version, ok := require["php"].(string); ok && version != "" {
 			if s.PhpVersion != "" {
 				s.Log.Warning("A version of PHP has been specified in both `composer.json` and `./bp-config/options.json`.")
 				s.Log.Warning("The version defined in `composer.json` will be used.")
 			}
-			s.PhpVersion = strings.Replace(composer.Requires.Php, ">=", "~>", -1)
-			s.Log.Debug("PHP Version from composer.json: %s", s.PhpVersion)
+			s.Log.Debug("PHP Version from composer.json: %s", version)
+			s.PhpVersion = strings.Replace(version, ">=", "~>", -1)
 		}
 	}
 
@@ -218,61 +216,47 @@ func (s *Supplier) SetupExtensions() error {
 	s.ZendExtensions = []string{}
 	s.WebDir = ""
 
-	var options map[string]interface{}
-	if err := s.JSON.Load(filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"), &options); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		s.Log.Debug("File Not Exist: %s", filepath.Join(s.Stager.BuildDir(), ".bp-config", "options.json"))
-	} else {
-		if arr, ok := options["PHP_EXTENSIONS"].([]interface{}); ok {
-			// TODO why implement deprecated feature?
-			s.Log.Warning("PHP_EXTENSIONS in options.json is deprecated.")
-			s.PhpExtensions = []string{}
-			for _, val := range arr {
-				if ext, ok := val.(string); ok {
-					s.PhpExtensions = append(s.PhpExtensions, ext)
-				}
+	if arr, ok := s.OptionsJson["PHP_EXTENSIONS"].([]interface{}); ok {
+		// TODO why implement deprecated feature?
+		s.Log.Warning("PHP_EXTENSIONS in options.json is deprecated.")
+		s.PhpExtensions = []string{}
+		for _, val := range arr {
+			if ext, ok := val.(string); ok {
+				s.PhpExtensions = append(s.PhpExtensions, ext)
 			}
-			s.Log.Debug("Found php extensions in options.json: %v", s.PhpExtensions)
 		}
-		if arr, ok := options["ZEND_EXTENSIONS"].([]interface{}); ok {
-			// TODO warning as above?
-			s.ZendExtensions = []string{}
-			for _, val := range arr {
-				if ext, ok := val.(string); ok {
-					s.ZendExtensions = append(s.ZendExtensions, ext)
-				}
+		s.Log.Debug("Found php extensions in options.json: %v", s.PhpExtensions)
+	}
+	if arr, ok := s.OptionsJson["ZEND_EXTENSIONS"].([]interface{}); ok {
+		// TODO warning as above?
+		s.ZendExtensions = []string{}
+		for _, val := range arr {
+			if ext, ok := val.(string); ok {
+				s.ZendExtensions = append(s.ZendExtensions, ext)
 			}
-			s.Log.Debug("Found zend extensions in options.json: %v", s.ZendExtensions)
 		}
-
-		if val, ok := options["WEBDIR"].(string); ok {
-			s.WebDir = val
-		}
+		s.Log.Debug("Found zend extensions in options.json: %v", s.ZendExtensions)
 	}
 
-	if s.ComposerPath != "" {
-		if err := s.JSON.Load(s.ComposerPath, &options); err != nil {
-			return err
-		} else {
-			s.Log.Debug("composer.json: %+v", options)
-			if requires, ok := options["require"].(map[string]interface{}); ok {
-				s.Log.Debug("composer.json->require: %+v", options)
-				// TODO should this remove the defaults? appears to me that it should NOT
-				// s.PhpExtensions = []string{}
-				// TODO does the value mean something? version?
-				// TODO does composer.json have zend extensions?
-				// TODO document change to NOT testing if extenion available
-				for k, _ := range requires {
-					if strings.HasPrefix(k, "ext-") {
-						s.PhpExtensions = append(s.PhpExtensions, k[4:])
-					}
-				}
-				s.Log.Debug("Found php extensions in composer.json: %v", s.PhpExtensions)
+	if val, ok := s.OptionsJson["WEBDIR"].(string); ok {
+		s.WebDir = val
+	}
+
+	if requires, ok := s.ComposerJson["require"].(map[string]interface{}); ok {
+		s.Log.Debug("composer.json->require: %+v", requires)
+		// TODO should this remove the defaults? appears to me that it should NOT
+		// s.PhpExtensions = []string{}
+		// TODO does the value mean something? version?
+		// TODO does composer.json have zend extensions?
+		// TODO document change to NOT testing if extenion available
+		for k, _ := range requires {
+			if strings.HasPrefix(k, "ext-") {
+				s.PhpExtensions = append(s.PhpExtensions, k[4:])
 			}
 		}
+		s.Log.Debug("Found php extensions in composer.json: %v", s.PhpExtensions)
 	}
+
 	return nil
 }
 
@@ -431,6 +415,20 @@ func (s *Supplier) RunComposer() error {
 		env = append(env, "COMPOSER="+s.ComposerPath)
 	}
 
+	if s.ComposerGithubToken != "" {
+		if s.isComposerTokenValid(s.ComposerGithubToken) {
+			s.Log.BeginStep("Using custom GitHub OAuth token in $COMPOSER_GITHUB_OAUTH_TOKEN")
+			cmd := exec.Command("php", filepath.Join(s.Stager.DepDir(), "bin", "composer"), "config", "-g", "github-oauth.github.com", s.ComposerGithubToken)
+			cmd.Env = env
+			cmd.Dir = s.Stager.BuildDir()
+			if err := s.Command.Run(cmd); err != nil {
+				return err
+			}
+		} else {
+			s.Log.BeginStep("The GitHub OAuth token supplied from $COMPOSER_GITHUB_OAUTH_TOKEN is invalid")
+		}
+	}
+
 	cmd := exec.Command("php", filepath.Join(s.Stager.DepDir(), "bin", "composer"), "install", "--no-progress", "--no-interaction", "--no-dev")
 	cmd.Env = env
 	cmd.Dir = s.Stager.BuildDir()
@@ -503,7 +501,7 @@ func (s *Supplier) isComposerTokenValid(token string) bool {
 		s.Log.Error("parse json: %s", err)
 		return false
 	}
-	s.Log.Error("RateLimit: %+v", hash)
+	s.Log.Debug("Github rate limit: %+v", hash)
 	_, ok := hash["resources"]
 	return ok
 }
