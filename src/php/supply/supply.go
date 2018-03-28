@@ -63,6 +63,7 @@ type Supplier struct {
 	HttpClient          HttpClient
 	PhpVersion          string
 	ComposerGithubToken string
+	BpDebug             bool
 	ComposerPath        string
 	ComposerJson        map[string]interface{}
 	ComposerLock        map[string]interface{}
@@ -76,6 +77,7 @@ func (s *Supplier) Run() error {
 	s.Log.BeginStep("Supplying php")
 
 	s.ComposerGithubToken = os.Getenv("COMPOSER_GITHUB_OAUTH_TOKEN")
+	s.BpDebug = os.Getenv("BP_DEBUG") != ""
 
 	if err := s.ReadConfig(); err != nil {
 		return fmt.Errorf("reading config: %s", err)
@@ -495,7 +497,14 @@ func (s *Supplier) RunComposer() error {
 		}
 	}
 
-	cmd := exec.Command("php", filepath.Join(s.Stager.DepDir(), "bin", "composer"), "install", "--no-progress", "--no-dev")
+	args := []string{filepath.Join(s.Stager.DepDir(), "bin", "composer"), "install", "--no-progress", "--no-dev"}
+	if s.BpDebug {
+		// args = append(args, "-vvv") // TODO maybe useful?
+		for _, line := range env {
+			s.Log.Debug("composer - ENV IS: %s", line)
+		}
+	}
+	cmd := exec.Command("php", args...)
 	cmd.Env = env
 	cmd.Dir = s.Stager.BuildDir()
 	cmd.Stdout = text.NewIndentWriter(os.Stdout, []byte("       "))
