@@ -377,7 +377,7 @@ func (s *Supplier) WriteConfigFiles() error {
 	}
 	s.Log.Debug("PhpExtensions: %s", ctxRun["PhpExtensions"])
 	for ext, _ := range s.ZendExtensions {
-		ctxRun["ZendExtensions"] = ctxRun["ZendExtensions"] + "zend_extension=" + ext + "\n"
+		ctxRun["ZendExtensions"] = ctxRun["ZendExtensions"] + "zend_extension=" + ext + ".so\n"
 	}
 	s.Log.Debug("ZendExtensions: %s", ctxRun["ZendExtensions"])
 
