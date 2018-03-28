@@ -108,7 +108,7 @@ func (s *Supplier) Run() error {
 			return err
 		}
 		if err := s.RunComposer(); err != nil {
-			s.Log.Error("Failed to run composer: %s", err)
+			s.Log.Error("Composer command failed: %s", err)
 			return err
 		}
 	}
