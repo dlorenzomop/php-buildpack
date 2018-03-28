@@ -7,6 +7,7 @@ package supply_test
 import (
 	libbuildpack "github.com/cloudfoundry/libbuildpack"
 	gomock "github.com/golang/mock/gomock"
+	http "net/http"
 	exec "os/exec"
 	reflect "reflect"
 )
@@ -300,4 +301,40 @@ func (m *MockJSON) Load(file string, obj interface{}) error {
 // Load indicates an expected call of Load
 func (mr *MockJSONMockRecorder) Load(file, obj interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockJSON)(nil).Load), file, obj)
+}
+
+// MockHttpClient is a mock of HttpClient interface
+type MockHttpClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockHttpClientMockRecorder
+}
+
+// MockHttpClientMockRecorder is the mock recorder for MockHttpClient
+type MockHttpClientMockRecorder struct {
+	mock *MockHttpClient
+}
+
+// NewMockHttpClient creates a new mock instance
+func NewMockHttpClient(ctrl *gomock.Controller) *MockHttpClient {
+	mock := &MockHttpClient{ctrl: ctrl}
+	mock.recorder = &MockHttpClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockHttpClient) EXPECT() *MockHttpClientMockRecorder {
+	return m.recorder
+}
+
+// Do mocks base method
+func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	ret := m.ctrl.Call(m, "Do", req)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Do indicates an expected call of Do
+func (mr *MockHttpClientMockRecorder) Do(req interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Do", reflect.TypeOf((*MockHttpClient)(nil).Do), req)
 }

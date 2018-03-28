@@ -219,7 +219,7 @@ func (s *Supplier) SetupPhpVersion() error {
 }
 
 func (s *Supplier) SetupExtensions() error {
-	s.PhpExtensions = map[string]bool{"bz2": true, "zlib": true, "curl": true, "mcrypt": true, "openssl": true}
+	s.PhpExtensions = map[string]bool{"bz2": true, "zlib": true, "curl": true, "mcrypt": true} // , "openssl": true}
 	s.ZendExtensions = map[string]bool{}
 
 	if arr, ok := s.OptionsJson["PHP_EXTENSIONS"].([]interface{}); ok {
@@ -412,7 +412,11 @@ func (s *Supplier) RunComposer() error {
 		os.Environ(),
 		"COMPOSER_NO_INTERACTION=1",
 		fmt.Sprintf("COMPOSER_CACHE_DIR=%s/composer", s.Stager.CacheDir()),
-		fmt.Sprintf("COMPOSER_VENDOR_DIR=%s/lib/vendor", s.Stager.BuildDir()),
+
+		// TODO which of the COMPOSER_VENDOR_DIR choices? symfony_28_remote_deps appears to need the second
+		// fmt.Sprintf("COMPOSER_VENDOR_DIR=%s/lib/vendor", s.Stager.BuildDir()),
+		fmt.Sprintf("COMPOSER_VENDOR_DIR=%s/vendor", s.Stager.BuildDir()),
+
 		fmt.Sprintf("COMPOSER_BIN_DIR=%s/php/bin", s.Stager.DepDir()),
 		"PHPRC=/tmp/php_etc/php/etc",
 		"TMPDIR=/tmp",
