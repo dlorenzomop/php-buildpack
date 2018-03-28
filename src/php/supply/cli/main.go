@@ -66,6 +66,7 @@ func main() {
 		Log:        logger,
 		Command:    &libbuildpack.Command{},
 		JSON:       libbuildpack.NewJSON(),
+		YAML:       libbuildpack.NewYAML(),
 		HttpClient: &http.Client{},
 	}
 

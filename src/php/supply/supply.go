@@ -46,6 +46,9 @@ type Command interface {
 type JSON interface {
 	Load(file string, obj interface{}) error
 }
+type YAML interface {
+	Load(file string, obj interface{}) error
+}
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -56,6 +59,7 @@ type Supplier struct {
 	Command             Command
 	Log                 *libbuildpack.Logger
 	JSON                JSON
+	YAML                YAML
 	HttpClient          HttpClient
 	PhpVersion          string
 	ComposerGithubToken string
@@ -82,6 +86,9 @@ func (s *Supplier) Run() error {
 	}
 	if err := s.SetupExtensions(); err != nil {
 		return fmt.Errorf("Initialiizing: extensions: %s", err)
+	}
+	if err := s.RemoveUnknownExtensions(); err != nil {
+		return fmt.Errorf("removing unknown extensions: %s", err)
 	}
 
 	if err := s.InstallHTTPD(); err != nil {
@@ -283,6 +290,34 @@ func (s *Supplier) SetupExtensions() error {
 		s.Log.Debug("Found php extensions in composer.lock: %v", s.PhpExtensions)
 	}
 
+	return nil
+}
+
+func (s *Supplier) RemoveUnknownExtensions() error {
+	modules := make(map[string]bool)
+	manifest := struct {
+		Dependencies []struct {
+			Name    string   `yaml:"name"`
+			Version string   `yaml:"version"`
+			Modules []string `yaml:"modules"`
+		} `yaml:"dependencies"`
+	}{}
+	if err := s.YAML.Load(filepath.Join(s.Manifest.RootDir(), "manifest.yml"), &manifest); err != nil {
+		return err
+	}
+	for _, dep := range manifest.Dependencies {
+		if dep.Name == "php" && dep.Version == s.PhpVersion {
+			for _, m := range dep.Modules {
+				modules[m] = true
+			}
+		}
+	}
+	for ext, _ := range s.PhpExtensions {
+		if _, found := modules[ext]; !found {
+			s.Log.Warning("The extension '%s' is not provided by this buildpack.", ext)
+			delete(s.PhpExtensions, ext)
+		}
+	}
 	return nil
 }
 
