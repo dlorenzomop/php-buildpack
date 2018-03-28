@@ -61,6 +61,7 @@ type Supplier struct {
 	ComposerGithubToken string
 	ComposerPath        string
 	ComposerJson        map[string]interface{}
+	ComposerLock        map[string]interface{}
 	OptionsJson         map[string]interface{}
 	PhpExtensions       map[string]bool
 	ZendExtensions      map[string]bool
@@ -164,6 +165,14 @@ func (s *Supplier) ReadConfig() error {
 			}
 			s.Log.Debug("File Not Exist: %s", s.ComposerPath)
 		}
+		if err := s.JSON.Load(strings.Replace(s.ComposerPath, ".json", ".lock", -1), &s.ComposerLock); err != nil {
+			if !os.IsNotExist(err) {
+				s.Log.Error("Invalid JSON present in composer.lock. Parser said %s", err)
+				// Ignore failure reading lock file
+			} else {
+				s.Log.Debug("File Not Exist: %s", s.ComposerPath)
+			}
+		}
 	}
 
 	return nil
@@ -248,18 +257,30 @@ func (s *Supplier) SetupExtensions() error {
 		s.Log.Debug("composer.json->require: %+v", requires)
 		// TODO should this remove the defaults? appears to me that it should NOT
 		// s.PhpExtensions = []string{}
-		// TODO does the value mean something? version?
+		// TODO ignoring the requested version. Should we? (old code does not)
 		// TODO does composer.json have zend extensions?
 		// TODO document change to NOT testing if extenion available
 		for k, _ := range requires {
 			if strings.HasPrefix(k, "ext-") {
 				s.PhpExtensions[k[4:]] = true
 			}
-			if strings.HasPrefix(k, "ext-pdo_") {
-				s.PhpExtensions["pdo"] = true
-			}
 		}
 		s.Log.Debug("Found php extensions in composer.json: %v", s.PhpExtensions)
+	}
+
+	if packages, ok := s.ComposerLock["packages"].([]interface{}); ok {
+		for _, item := range packages {
+			if hash, ok := item.(map[string]interface{}); ok {
+				if requires, ok := hash["require"].(map[string]interface{}); ok {
+					for k, _ := range requires {
+						if strings.HasPrefix(k, "ext-") {
+							s.PhpExtensions[k[4:]] = true
+						}
+					}
+				}
+			}
+		}
+		s.Log.Debug("Found php extensions in composer.lock: %v", s.PhpExtensions)
 	}
 
 	return nil
