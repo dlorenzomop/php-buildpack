@@ -62,8 +62,8 @@ type Supplier struct {
 	ComposerPath        string
 	ComposerJson        map[string]interface{}
 	OptionsJson         map[string]interface{}
-	PhpExtensions       []string
-	ZendExtensions      []string
+	PhpExtensions       map[string]bool
+	ZendExtensions      map[string]bool
 	WebDir              string
 }
 
@@ -182,6 +182,7 @@ func (s *Supplier) SetupPhpVersion() error {
 		}
 	}
 
+	// s.Log.Debug("ComposerJson: %+v", s.ComposerJson)
 	if require, ok := s.ComposerJson["require"].(map[string]interface{}); ok {
 		if version, ok := require["php"].(string); ok && version != "" {
 			if s.PhpVersion != "" {
@@ -218,26 +219,26 @@ func (s *Supplier) SetupPhpVersion() error {
 }
 
 func (s *Supplier) SetupExtensions() error {
-	s.PhpExtensions = []string{"bz2", "zlib", "curl", "mcrypt", "openssl"}
-	s.ZendExtensions = []string{}
+	s.PhpExtensions = map[string]bool{"bz2": true, "zlib": true, "curl": true, "mcrypt": true, "openssl": true}
+	s.ZendExtensions = map[string]bool{}
 
 	if arr, ok := s.OptionsJson["PHP_EXTENSIONS"].([]interface{}); ok {
 		// TODO why implement deprecated feature?
 		s.Log.Warning("PHP_EXTENSIONS in options.json is deprecated.")
-		s.PhpExtensions = []string{}
+		s.PhpExtensions = map[string]bool{}
 		for _, val := range arr {
 			if ext, ok := val.(string); ok {
-				s.PhpExtensions = append(s.PhpExtensions, ext)
+				s.PhpExtensions[ext] = true
 			}
 		}
 		s.Log.Debug("Found php extensions in options.json: %v", s.PhpExtensions)
 	}
 	if arr, ok := s.OptionsJson["ZEND_EXTENSIONS"].([]interface{}); ok {
 		// TODO warning as above?
-		s.ZendExtensions = []string{}
+		s.ZendExtensions = map[string]bool{}
 		for _, val := range arr {
 			if ext, ok := val.(string); ok {
-				s.ZendExtensions = append(s.ZendExtensions, ext)
+				s.ZendExtensions[ext] = true
 			}
 		}
 		s.Log.Debug("Found zend extensions in options.json: %v", s.ZendExtensions)
@@ -252,7 +253,10 @@ func (s *Supplier) SetupExtensions() error {
 		// TODO document change to NOT testing if extenion available
 		for k, _ := range requires {
 			if strings.HasPrefix(k, "ext-") {
-				s.PhpExtensions = append(s.PhpExtensions, k[4:])
+				s.PhpExtensions[k[4:]] = true
+			}
+			if strings.HasPrefix(k, "ext-pdo_") {
+				s.PhpExtensions["pdo"] = true
 			}
 		}
 		s.Log.Debug("Found php extensions in composer.json: %v", s.PhpExtensions)
@@ -310,11 +314,11 @@ func (s *Supplier) WriteConfigFiles() error {
 		"ZendExtensions":    "",
 	}
 
-	for _, ext := range s.PhpExtensions {
+	for ext, _ := range s.PhpExtensions {
 		ctxRun["PhpExtensions"] = ctxRun["PhpExtensions"] + "extension=" + ext + ".so\n"
 	}
 	s.Log.Debug("PhpExtensions: %s", ctxRun["PhpExtensions"])
-	for _, ext := range s.ZendExtensions {
+	for ext, _ := range s.ZendExtensions {
 		ctxRun["ZendExtensions"] = ctxRun["ZendExtensions"] + "zend_extension=" + ext + "\n"
 	}
 	s.Log.Debug("ZendExtensions: %s", ctxRun["ZendExtensions"])
