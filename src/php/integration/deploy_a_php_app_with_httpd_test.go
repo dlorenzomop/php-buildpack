@@ -24,7 +24,7 @@ var _ = Describe("CF PHP Buildpack", func() {
 
 		It("succeeds", func() {
 			By("shows the current buildpack version for useful info")
-			Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring("-------> Php Buildpack version " + buildpackVersion))
+			Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring("-----> Php Buildpack version " + buildpackVersion))
 
 			By("installs httpd, the request web server")
 			Eventually(app.Stdout.String, 10*time.Second).Should(ContainSubstring("Installing httpd"))
